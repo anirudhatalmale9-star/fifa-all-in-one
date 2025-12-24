@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FIFA All-in-One",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Auto-fill forms + ticket selector - all in one extension",
   "permissions": [
     "activeTab",

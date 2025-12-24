@@ -26,22 +26,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Initialize
+  // Initialize - ALWAYS load from accounts.csv file first
   async function init() {
-    storage.get(['accounts', 'selectedRow', 'csvData'], async (result) => {
-      if (result.accounts && result.accounts.length > 0) {
-        if (result.csvData) csvInput.value = result.csvData;
-        populateAccountSelect(result.accounts, result.selectedRow || 0);
-      } else {
-        const embeddedAccounts = await loadEmbeddedCSV();
-        if (embeddedAccounts.length > 0) {
-          storage.set({ accounts: embeddedAccounts, selectedRow: 0 }, () => {
-            populateAccountSelect(embeddedAccounts, 0);
-            showStatus(`Auto-loaded ${embeddedAccounts.length} accounts!`);
-          });
+    // Always read fresh from accounts.csv file
+    const embeddedAccounts = await loadEmbeddedCSV();
+
+    if (embeddedAccounts.length > 0) {
+      // Get previously selected row (or default to 0)
+      storage.get(['selectedRow'], (result) => {
+        const selectedRow = Math.min(result.selectedRow || 0, embeddedAccounts.length - 1);
+        storage.set({ accounts: embeddedAccounts, selectedRow }, () => {
+          populateAccountSelect(embeddedAccounts, selectedRow);
+          console.log('[FIFA] Loaded', embeddedAccounts.length, 'accounts from accounts.csv');
+        });
+      });
+    } else {
+      // Fallback to storage if no accounts.csv file
+      storage.get(['accounts', 'selectedRow', 'csvData'], async (result) => {
+        if (result.accounts && result.accounts.length > 0) {
+          if (result.csvData) csvInput.value = result.csvData;
+          populateAccountSelect(result.accounts, result.selectedRow || 0);
         }
-      }
-    });
+      });
+    }
   }
 
   init();
