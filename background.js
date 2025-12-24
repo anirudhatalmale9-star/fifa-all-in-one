@@ -165,19 +165,113 @@ function getAutofillFunction() {
   };
 }
 
+// Parse CSV text to accounts array
+function parseCSV(csv) {
+  const lines = csv.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  let headerLine = lines[0].toLowerCase();
+  if (headerLine.endsWith(',')) headerLine = headerLine.slice(0, -1);
+  let headers = headerLine.split(',').map(h => h.trim().replace(/['"]/g, ''));
+
+  const headerMap = {
+    'email': 'email', 'password': 'password',
+    'last name': 'last_name', 'last_name': 'last_name', 'lastname': 'last_name',
+    'first name': 'first_name', 'first_name': 'first_name', 'firstname': 'first_name',
+    'full name': 'full_name', 'full_name': 'full_name', 'fullname': 'full_name',
+    'country': 'country', 'address': 'address', 'city': 'city',
+    'zip code': 'zip_code', 'zip_code': 'zip_code', 'zipcode': 'zip_code', 'zip': 'zip_code',
+    'province': 'province', 'state': 'province',
+    'phone': 'phone', 'phone #': 'phone', 'phone_number': 'phone',
+    'card_number': 'card_number', 'card number': 'card_number',
+    'cvc': 'cvc', 'cvv': 'cvc',
+    'card_expiry': 'card_expiry', 'card expiry': 'card_expiry', 'expiry': 'card_expiry',
+    'expiration date': 'card_expiry', 'expiration_date': 'card_expiry',
+    'card_name': 'card_name', 'card name': 'card_name', 'cardholder': 'card_name',
+    'gender': 'gender', 'language': 'language',
+    'matches': 'matches', 'match': 'matches',
+    'category': 'category', 'cat': 'category',
+    'quantity': 'quantity', 'qty': 'quantity', 'tickets': 'quantity'
+  };
+
+  let normalizedHeaders = headers.map(h => headerMap[h] || h);
+
+  function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+      else current += char;
+    }
+    values.push(current.trim());
+    return values;
+  }
+
+  const accounts = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const values = parseCSVLine(line);
+    const account = {};
+
+    normalizedHeaders.forEach((header, index) => {
+      if (header && header.trim()) {
+        account[header] = values[index] || '';
+      }
+    });
+
+    if (!account.full_name && account.first_name && account.last_name) {
+      account.full_name = account.first_name + ' ' + account.last_name;
+    }
+    if (!account.card_name && account.full_name) {
+      account.card_name = account.full_name;
+    }
+
+    accounts.push(account);
+  }
+  return accounts;
+}
+
+// Load accounts from CSV file
+async function loadAccountsFromCSV() {
+  try {
+    const response = await fetch(chrome.runtime.getURL('accounts.csv'));
+    const csvText = await response.text();
+    return parseCSV(csvText);
+  } catch (err) {
+    console.error('[FIFA] Error loading accounts.csv:', err);
+    return [];
+  }
+}
+
 // Inject autofill into all frames of a tab
 async function injectAutofillIntoAllFrames(tabId) {
   try {
-    // Get account from storage
-    const result = await chrome.storage.local.get(['accounts', 'selectedRow']);
-    const accounts = result.accounts || [];
-    const selectedRow = result.selectedRow || 0;
+    // ALWAYS load fresh from accounts.csv file
+    let accounts = await loadAccountsFromCSV();
+
+    // Fallback to storage if CSV is empty
+    if (accounts.length === 0) {
+      const result = await chrome.storage.local.get(['accounts']);
+      accounts = result.accounts || [];
+    }
+
+    // Get selected row from storage
+    const rowResult = await chrome.storage.local.get(['selectedRow']);
+    const selectedRow = rowResult.selectedRow || 0;
     const account = accounts[selectedRow];
 
     if (!account) {
-      console.log('[FIFA] No account in storage');
+      console.log('[FIFA] No account found');
       return;
     }
+
+    // Update storage with fresh accounts
+    await chrome.storage.local.set({ accounts, selectedRow });
 
     // Inject into all frames
     const results = await chrome.scripting.executeScript({
@@ -228,9 +322,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'getAccount') {
-    chrome.storage.local.get(['accounts', 'selectedRow'], (result) => {
-      const accounts = result.accounts || [];
-      const selectedRow = result.selectedRow || 0;
+    // Load fresh from CSV file
+    loadAccountsFromCSV().then(async (accounts) => {
+      if (accounts.length === 0) {
+        const result = await chrome.storage.local.get(['accounts']);
+        accounts = result.accounts || [];
+      }
+      const rowResult = await chrome.storage.local.get(['selectedRow']);
+      const selectedRow = rowResult.selectedRow || 0;
       sendResponse({ account: accounts[selectedRow] || null });
     });
     return true;
