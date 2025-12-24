@@ -7,8 +7,8 @@
 (function() {
   'use strict';
 
-  // ========== TICKET SELECTOR CONFIG ==========
-  const MATCH_CONFIG = [
+  // ========== DEFAULT CONFIG (used if account doesn't have matches) ==========
+  const DEFAULT_MATCH_CONFIG = [
     { matchNumber: 3, category: 1, quantity: 4 },
     { matchNumber: 7, category: 1, quantity: 4 },
     { matchNumber: 11, category: 1, quantity: 4 },
@@ -22,6 +22,32 @@
   ];
   const ACTION_DELAY = 50;
   // ========== END CONFIG ==========
+
+  // Parse matches string from CSV to config array
+  // Format: "M5,M11,M18,M24" or "5,11,18,24"
+  function parseMatchesFromAccount(account) {
+    if (!account.matches) return null;
+
+    const matchesStr = account.matches.trim();
+    if (!matchesStr) return null;
+
+    const category = parseInt(account.category) || 1;
+    const quantity = parseInt(account.quantity) || 4;
+
+    // Split by comma, handle M5 or 5 format
+    const matchNumbers = matchesStr.split(',').map(m => {
+      const cleaned = m.trim().toUpperCase().replace('M', '');
+      return parseInt(cleaned);
+    }).filter(n => !isNaN(n) && n > 0);
+
+    if (matchNumbers.length === 0) return null;
+
+    return matchNumbers.map(matchNumber => ({
+      matchNumber,
+      category,
+      quantity
+    }));
+  }
 
   let currentAccount = null;
   let autoFillAttempted = false;
@@ -386,10 +412,26 @@
 
   async function selectAllMatches() {
     console.log('[FIFA] Starting ticket selection...');
+
+    // Load current account to get matches
+    const account = await loadAccount();
+
+    // Get match config from account or use default
+    let matchConfig = DEFAULT_MATCH_CONFIG;
+    if (account) {
+      const accountMatches = parseMatchesFromAccount(account);
+      if (accountMatches) {
+        matchConfig = accountMatches;
+        console.log('[FIFA] Using account-specific matches:', matchConfig);
+      } else {
+        console.log('[FIFA] No matches in account, using default config');
+      }
+    }
+
     let successCount = 0;
     let failCount = 0;
 
-    for (const config of MATCH_CONFIG) {
+    for (const config of matchConfig) {
       const { matchNumber, category, quantity } = config;
       try {
         const container = findMatchContainer(matchNumber);

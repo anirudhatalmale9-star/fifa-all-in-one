@@ -69,7 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
       'card_expiry': 'card_expiry', 'card expiry': 'card_expiry', 'expiry': 'card_expiry',
       'expiration date': 'card_expiry', 'expiration_date': 'card_expiry',
       'card_name': 'card_name', 'card name': 'card_name', 'cardholder': 'card_name',
-      'gender': 'gender', 'language': 'language'
+      'gender': 'gender', 'language': 'language',
+      'matches': 'matches', 'match': 'matches',
+      'category': 'category', 'cat': 'category',
+      'quantity': 'quantity', 'qty': 'quantity', 'tickets': 'quantity'
     };
 
     let normalizedHeaders = headers.map(h => headerMap[h] || h);
