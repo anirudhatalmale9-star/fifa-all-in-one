@@ -26,15 +26,31 @@
   let currentAccount = null;
   let autoFillAttempted = false;
 
-  // Load account from storage
+  // Load account from storage (with iframe fallback via message passing)
   async function loadAccount() {
     return new Promise((resolve) => {
       if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.get(['accounts', 'selectedRow'], (result) => {
-          const accounts = result.accounts || [];
-          const selectedRow = result.selectedRow || 0;
-          resolve(accounts[selectedRow] || null);
-        });
+        try {
+          chrome.storage.local.get(['accounts', 'selectedRow'], (result) => {
+            if (chrome.runtime.lastError) {
+              console.log('[FIFA] Storage access error (likely iframe), requesting from background');
+              // In iframe - request account from background script
+              chrome.runtime.sendMessage({ action: 'getAccount' }, (response) => {
+                resolve(response?.account || null);
+              });
+            } else {
+              const accounts = result.accounts || [];
+              const selectedRow = result.selectedRow || 0;
+              resolve(accounts[selectedRow] || null);
+            }
+          });
+        } catch (e) {
+          console.log('[FIFA] Storage error:', e);
+          // Fallback - request from background
+          chrome.runtime.sendMessage({ action: 'getAccount' }, (response) => {
+            resolve(response?.account || null);
+          });
+        }
       } else {
         resolve(null);
       }

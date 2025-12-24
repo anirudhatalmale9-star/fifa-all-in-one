@@ -18,6 +18,20 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
+// Handle messages from content scripts (especially iframes that can't access storage directly)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'getAccount') {
+    // Get account from storage and send back to content script
+    chrome.storage.local.get(['accounts', 'selectedRow'], (result) => {
+      const accounts = result.accounts || [];
+      const selectedRow = result.selectedRow || 0;
+      const account = accounts[selectedRow] || null;
+      sendResponse({ account });
+    });
+    return true; // Keep channel open for async response
+  }
+});
+
 // Log when extension is installed/updated
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[FIFA] All-in-One extension installed/updated');
