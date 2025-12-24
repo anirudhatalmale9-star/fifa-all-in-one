@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "FIFA All-in-One",
+  "version": "2.0.0",
+  "description": "Auto-fill forms + ticket selector - all in one extension",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "commands": {
+    "autofill": {
+      "suggested_key": {
+        "default": "Alt+A"
+      },
+      "description": "Autofill form fields"
+    },
+    "select-matches": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S"
+      },
+      "description": "Select ticket matches"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["accounts.csv"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "host_permissions": [
+    "https://*.fifa.com/*",
+    "https://*.tickets.fifa.com/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.fifa.com/*",
+        "https://*.tickets.fifa.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
